@@ -110,12 +110,7 @@ def enumerate_tenant_domains(domain, user_agent='AutodiscoverClient'):
 		except ET.ParseError:
 			continue
 
-	domains = []
-
-	for i in xml_response[1][0][0][3]:
-		domains.append(i.text)
-
-	return domains
+	return [i.text for i in xml_response[1][0][0][3]]
 
 def find_tenant_name(email, target):
 	"""Given an email account and application to target, will return the valid tenant name"""
@@ -129,11 +124,12 @@ def find_tenant_name(email, target):
 	domain = email.split('@')[1]
 	user_domain_1 = email.replace('@','_').replace('.','_')
 	domain_list = enumerate_tenant_domains(domain)
-	tenant_names = []
 	valid_tenant_name = None
-	for entry in domain_list:
-		if '.onmicrosoft.com' in entry:
-			tenant_names.append(entry.split('.')[0])
+	tenant_names = [
+		entry.split('.')[0]
+		for entry in domain_list
+		if '.onmicrosoft.com' in entry
+	]
 	if len(tenant_names) > 1:
 		print(f'{VALID}[-]{RESET} Attempting to find the correct tenant name')
 		print(f'{VALID}[-]{RESET} This might take a little while depending' \
@@ -162,11 +158,15 @@ def main():
 	Can also take in a password to be used with 'login' or
 	'autologon' methods to perform password spray
 	"""
-	arg_parser = argparse.ArgumentParser(prog='user_enum.py',
-							usage=SUCCESS + '%(prog)s' + RESET + ' [-m login-method | '\
-								'-u username | -i input-list | -o outfile]',
-							description=DESCRIPTION,
-							formatter_class=argparse.RawDescriptionHelpFormatter)
+	arg_parser = argparse.ArgumentParser(
+		prog='user_enum.py',
+		usage=(
+			f'{SUCCESS}%(prog)s{RESET}' + ' [-m login-method | '
+			'-u username | -i input-list | -o outfile]'
+		),
+		description=DESCRIPTION,
+		formatter_class=argparse.RawDescriptionHelpFormatter,
+	)
 	arg_parser.add_argument('-m',
 							'--method',
 							metavar='<method>',
@@ -217,7 +217,7 @@ def main():
 		outfile = './' + time.strftime('%Y-%m-%d_%H-%M-%S_User-Enum.json')
 	else:
 		if outfile_path[-1] != '/':
-			outfile_path = outfile_path + '/'
+			outfile_path = f'{outfile_path}/'
 		outfile = outfile_path + time.strftime('%Y-%m-%d_%H-%M-%S_User-Enum.json')
 
 	if args.username is not None:
@@ -226,9 +226,7 @@ def main():
 	elif args.input_list is not None:
 		# We better be loading from a list
 		with open(args.input_list, encoding='UTF-8') as userfile:
-			userlist = []
-			for user in userfile.readlines():
-				userlist.append(user.replace('\n', ''))
+			userlist = [user.replace('\n', '') for user in userfile]
 	else:
 		# No users supplied
 		print(f'{WARNING}No users supplied with either -u or -i\n{DANGER}Exiting{RESET}')
@@ -244,6 +242,8 @@ def main():
 	results = []
 
 	if args.method == 'normal':
+		endpoint = 'https://login.microsoftonline.com/common/GetCredentialType'
+
 		for user in userlist:
 			data = {
 				'username': user,
@@ -262,18 +262,15 @@ def main():
 				'Content-Type': 'application/json; charset=utf-8',
 			}
 
-			endpoint = 'https://login.microsoftonline.com/common/GetCredentialType'
-
 			json_response = requests.post(endpoint, headers=headers, data=json_data).json()
 
 			if json_response['ThrottleStatus'] == 1:
 				print(f'{WARNING}Requests being throttled.{RESET}')
 				exists = '???'
+			elif json_response['IfExistsResult'] in [0, 6]:
+				exists = 'VALID_USER'
 			else:
-				if json_response['IfExistsResult'] == 0 or json_response['IfExistsResult'] == 6:
-					exists = 'VALID_USER'
-				else:
-					exists = 'INVALID_USER'
+				exists = 'INVALID_USER'
 
 			results.append({
 				'account': user,
@@ -282,8 +279,7 @@ def main():
 
 	elif args.method == 'onedrive':
 		print(f'{WARNING}[!]{RESET} This will only discover accounts that have M365 licenses')
-		valid_tenant_name = find_tenant_name(userlist[0], args.method)
-		if valid_tenant_name:
+		if valid_tenant_name := find_tenant_name(userlist[0], args.method):
 			for user in userlist:
 				user_domain = user.replace('@','_').replace('.','_')
 				onedrive_endpoint = f'https://{valid_tenant_name}-my.sharepoint.com' \
@@ -291,7 +287,7 @@ def main():
 				user_check = requests.get(onedrive_endpoint)
 				user_check_status = user_check.status_code
 				exists = 'INVALID_USER'
-				if user_check_status in [200, 302, 401, 403]:
+				if user_check_status in {200, 302, 401, 403}:
 					exists = 'VALID_USER'
 				results.append({
 						'account': user,
@@ -303,8 +299,7 @@ def main():
 
 	elif args.method == 'lists':
 		print(f'{WARNING}[!]{RESET} This will only discover accounts that have M365 licenses')
-		valid_tenant_name = find_tenant_name(userlist[0], args.method)
-		if valid_tenant_name:
+		if valid_tenant_name := find_tenant_name(userlist[0], args.method):
 			for user in userlist:
 				user_domain = user.replace('@','_').replace('.','_')
 				lists_endpoint = f'https://{valid_tenant_name}-my.sharepoint.com' \
@@ -312,7 +307,7 @@ def main():
 				user_check = requests.get(lists_endpoint)
 				user_check_status = user_check.status_code
 				exists = 'INVALID_USER'
-				if user_check_status in [200, 302, 401, 403]:
+				if user_check_status in {200, 302, 401, 403}:
 					exists = 'VALID_USER'
 				results.append({
 						'account': user,
@@ -323,6 +318,8 @@ def main():
 			sys.exit()
 
 	elif args.method == 'login':
+		endpoint = 'https://login.microsoftonline.com/common/oauth2/token'
+
 		for user in userlist:
 			data = {
 				'resource': client_id,
@@ -332,8 +329,6 @@ def main():
 				'password': password,
 				'scope': 'openid'
 			}
-
-			endpoint = 'https://login.microsoftonline.com/common/oauth2/token'
 
 			headers = {
 				'Content-Type': 'application/x-www-form-urlencoded'

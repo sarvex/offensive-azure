@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 '''
 
+
 import os
 import sys
 import time
@@ -62,10 +63,7 @@ USERS_SELECT_PARAMS_DICT = {
 	'onPremisesSecurityIdentifier': 'Security_Identifier_(SID)_On-Prem'
 }
 
-USERS_SELECT_PARAMS = []
-for param_key in USERS_SELECT_PARAMS_DICT:
-	USERS_SELECT_PARAMS.append(param_key)
-
+USERS_SELECT_PARAMS = list(USERS_SELECT_PARAMS_DICT)
 USERS_SELECT_PARAMS_STRING = str(USERS_SELECT_PARAMS)[1:][:-1].replace('\'','').replace(' ', '')
 
 USER_ENDPOINT = USERS_ENDPOINT_BASE + USERS_SELECT_PARAMS_STRING
@@ -81,11 +79,10 @@ def main():
 	"""Runner method"""
 	arg_parser = argparse.ArgumentParser(
 		prog='get_group_members.py',
-		usage=SUCCESS + '%(prog)s' + RESET + \
-			' [-t|--graph_token <graph_token>]' + \
-			' [-r|--refresh_token <refresh_token>]',
+		usage=f'{SUCCESS}%(prog)s{RESET} [-t|--graph_token <graph_token>] [-r|--refresh_token <refresh_token>]',
 		description=DESCRIPTION,
-		formatter_class=argparse.RawDescriptionHelpFormatter)
+		formatter_class=argparse.RawDescriptionHelpFormatter,
+	)
 	arg_parser.add_argument(
 		'-t',
 		'--graph_token',
@@ -128,10 +125,12 @@ def main():
 	if outfile_path_base is None:
 		outfile_path_base = time.strftime('%Y-%m-%d_%H-%M-%S_')
 	elif outfile_path_base[-1] != '/':
-		outfile_path_base = outfile_path_base + '/' + time.strftime('%Y-%m-%d_%H-%M-%S_')
-	outfile_raw_json = outfile_path_base + 'group_members_raw.json'
-	outfile_condensed = outfile_path_base + 'group_members_condensed.json'
-	outfile_bloodhound = outfile_path_base + 'group_members_bloodhound.json'
+		outfile_path_base = f'{outfile_path_base}/' + time.strftime(
+			'%Y-%m-%d_%H-%M-%S_'
+		)
+	outfile_raw_json = f'{outfile_path_base}group_members_raw.json'
+	outfile_condensed = f'{outfile_path_base}group_members_condensed.json'
+	outfile_bloodhound = f'{outfile_path_base}group_members_bloodhound.json'
 
 	# Check to see if any graph or refresh token is given in the arguments
 	# If both are given, will use graph token
@@ -152,7 +151,7 @@ def main():
 				json_file_data = json.load(json_file)
 				json_file.close()
 		except OSError as error:
-			print(str(error))
+			print(error)
 			sys.exit()
 		refresh_token = json_file_data['refresh_token']
 	elif args.graph_token is not None:
@@ -191,9 +190,7 @@ def main():
 
 
 	# Getting our first (only?) page of user results
-	headers = {
-		'Authorization': 'Bearer ' + graph_token
-	}
+	headers = {'Authorization': f'Bearer {graph_token}'}
 	response = requests.get(USER_ENDPOINT, headers=headers).json()
 	raw_user_json_data = {'value': []}
 	try:
@@ -297,8 +294,8 @@ def main():
 			for prop, val in group_member_of.items():
 				if val is not None:
 					condensed_group_json_data[properties['id']]['memberOf'][group_member_of['id']][prop] = val
-				if val is not None and prop not in ['displayName','proxyAddresses','@odata.type']:
-					print(f'\t\t{SUCCESS}{prop}{RESET}: {str(val)}')
+					if prop not in ['displayName','proxyAddresses','@odata.type']:
+						print(f'\t\t{SUCCESS}{prop}{RESET}: {str(val)}')
 		print()
 
 	# Writing to raw_json_out

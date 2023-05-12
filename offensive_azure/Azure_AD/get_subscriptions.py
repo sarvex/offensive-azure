@@ -64,11 +64,10 @@ def main():
 	"""Runner method"""
 	arg_parser = argparse.ArgumentParser(
 		prog='get_subscriptions.py',
-		usage=SUCCESS + '%(prog)s' + RESET + \
-			' [-t|--arm_token <arm_token>]' + \
-			' [-r|--refresh_token <refresh_token>]',
+		usage=f'{SUCCESS}%(prog)s{RESET} [-t|--arm_token <arm_token>] [-r|--refresh_token <refresh_token>]',
 		description=DESCRIPTION,
-		formatter_class=argparse.RawDescriptionHelpFormatter)
+		formatter_class=argparse.RawDescriptionHelpFormatter,
+	)
 	arg_parser.add_argument(
 		'-t',
 		'--arm_token',
@@ -111,10 +110,12 @@ def main():
 	if outfile_path_base is None:
 		outfile_path_base = time.strftime('%Y-%m-%d_%H-%M-%S_')
 	elif outfile_path_base[-1] != '/':
-		outfile_path_base = outfile_path_base + '/' + time.strftime('%Y-%m-%d_%H-%M-%S_')
-	outfile_raw_json = outfile_path_base + 'subscriptions_raw.json'
-	outfile_condensed = outfile_path_base + 'subscriptions_condensed.json'
-	outfile_bloodhound = outfile_path_base + 'subscriptions_bloodhound.json'
+		outfile_path_base = f'{outfile_path_base}/' + time.strftime(
+			'%Y-%m-%d_%H-%M-%S_'
+		)
+	outfile_raw_json = f'{outfile_path_base}subscriptions_raw.json'
+	outfile_condensed = f'{outfile_path_base}subscriptions_condensed.json'
+	outfile_bloodhound = f'{outfile_path_base}subscriptions_bloodhound.json'
 
 	# Check to see if any graph or refresh token is given in the arguments
 	# If both are given, will use graph token
@@ -135,7 +136,7 @@ def main():
 				json_file_data = json.load(json_file)
 				json_file.close()
 		except OSError as error:
-			print(str(error))
+			print(error)
 			sys.exit()
 		refresh_token = json_file_data['refresh_token']
 	elif args.arm_token is not None:
@@ -173,9 +174,7 @@ def main():
 		arm_token = json_data['access_token']
 
 	# Collect all available subscriptions
-	headers = {
-		'Authorization': 'Bearer ' + arm_token
-	}
+	headers = {'Authorization': f'Bearer {arm_token}'}
 	subs_response = requests.get(ENDPOINT, headers=headers).json()
 	raw_json_data = {
 		'value': subs_response['value']

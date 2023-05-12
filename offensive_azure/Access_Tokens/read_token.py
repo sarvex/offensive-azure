@@ -50,10 +50,10 @@ def main():
 	"""Runner method"""
 	arg_parser = argparse.ArgumentParser(
 		prog='read_token.py',
-		usage=SUCCESS + '%(prog)s' + RESET + \
-			' [-t|--token <access_token>]',
+		usage=f'{SUCCESS}%(prog)s{RESET} [-t|--token <access_token>]',
 		description=DESCRIPTION,
-		formatter_class=argparse.RawDescriptionHelpFormatter)
+		formatter_class=argparse.RawDescriptionHelpFormatter,
+	)
 	arg_parser.add_argument(
 		'-t',
 		'--token',
@@ -72,7 +72,7 @@ def main():
 	signature = parts[2]
 
 	# Parsing access token information
-	payload_string = base64.b64decode(payload + '==')
+	payload_string = base64.b64decode(f'{payload}==')
 	payload_json = json.loads(payload_string)
 	try:
 		iat_date = datetime.datetime.fromtimestamp(payload_json['iat'])
@@ -341,21 +341,19 @@ def main():
 
 	# Token signature verfication
 
-	head_string = base64.b64decode(head + '==')
+	head_string = base64.b64decode(f'{head}==')
 	head_json = json.loads(head_string)
 	key_id = head_json['kid']
 
 	if head_json['alg'] == 'RS256':
 		response = requests.get(KEY_ENDPOINT).json()
-		public_cert = None
-		for key in response['keys']:
-			if key['kid'] == key_id:
-				public_cert = key['x5c']
-				break
+		public_cert = next(
+			(key['x5c'] for key in response['keys'] if key['kid'] == key_id), None
+		)
 		if public_cert is not None:
 			public_cert_bin = base64.b64decode(public_cert[0])
 			jwt_data = f'{head}.{payload}'
-			jwt_data_bin = base64.b64decode(jwt_data + '==')
+			jwt_data_bin = base64.b64decode(f'{jwt_data}==')
 			signature = signature.replace('-','+').replace('_','/') + '=='
 			signature_bin = base64.b64decode(signature)
 			for index in range(0, len(public_cert_bin), 1):
@@ -370,17 +368,17 @@ def main():
 					if next_byte & 0x02:
 						byte_one = str(public_cert_bin[index+2])
 						while len(byte_one) % 8:
-							byte_one = '0' + byte_one
+							byte_one = f'0{byte_one}'
 						byte_two = str(public_cert_bin[index+1])
 						while len(byte_two) % 8:
-							byte_two = '0' + byte_two
+							byte_two = f'0{byte_two}'
 						bytes_concat = byte_one + byte_two
 						byte_count = int(bytes_concat, 2)
 						index = index + 3
 					elif next_byte & 0x01:
 						byte_one = str(public_cert_bin[index+1])
 						while len(byte_one) % 8:
-							byte_one = '0' + byte_one
+							byte_one = f'0{byte_one}'
 						byte_count = int(byte_one, 2)
 						index = index + 2
 
@@ -401,15 +399,15 @@ def main():
 			if exponent and modulus:
 				exponent_bin = ''
 				for exp_byte in exponent:
-					exp_bin = str(bin(exp_byte)).replace('0b', '')
+					exp_bin = bin(exp_byte).replace('0b', '')
 					while len(exp_bin) % 8:
-						exp_bin = '0' + exp_bin
+						exp_bin = f'0{exp_bin}'
 					exponent_bin = exponent_bin + exp_bin
 				modulus_bin = ''
 				for mod_byte in modulus:
-					mod_bin = str(bin(mod_byte)).replace('0b', '')
+					mod_bin = bin(mod_byte).replace('0b', '')
 					while len(mod_bin) % 8:
-						mod_bin = '0' + mod_bin
+						mod_bin = f'0{mod_bin}'
 					modulus_bin = modulus_bin + mod_bin
 				rsa = RSA.construct((int(modulus_bin, 2), int(exponent_bin, 2)))
 				hash_msg = SHA.new()

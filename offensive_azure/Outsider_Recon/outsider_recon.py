@@ -58,10 +58,8 @@ class OutsiderRecon:
 		"""Takes in list of domains and login information, returns domain details"""
 		domain_info = {}
 		for domain in domains:
-			domain_info[domain] = {}
+			domain_info[domain] = {'sso': False}
 
-			# Check if domain has SSO emabled
-			domain_info[domain]['sso'] = False
 			try:
 				if login_infos[domain]['Desktop SSO Enabled'] == 'True':
 					domain_info[domain]['sso'] = True
@@ -129,7 +127,7 @@ class OutsiderRecon:
 			# Check for DMARC
 			try:
 				domain_info[domain]['dmarc'] = False
-				dns_response = dns.resolver.resolve('_dmarc.' + domain, 'TXT')
+				dns_response = dns.resolver.resolve(f'_dmarc.{domain}', 'TXT')
 				for answer in dns_response:
 					if 'v=DMARC1' in str(answer):
 						domain_info[domain]['dmarc'] = True
@@ -149,7 +147,7 @@ class OutsiderRecon:
 		"""Given a domain and optional username, will return the authentication related info"""
 		results = {}
 
-		user = username + '@' + domain
+		user = f'{username}@{domain}'
 
 		endpoint1 = f'https://login.microsoftonline.com/common/userrealm/{user}?api-version=1.0'
 		endpoint2 = f'https://login.microsoftonline.com/common/userrealm/{user}?api-version=2.0'
@@ -266,9 +264,7 @@ class OutsiderRecon:
 		"""Given a domain, will return the openid configuration information"""
 		endpoint = f'https://login.microsoftonline.com/{domain}/.well-known/openid-configuration'
 
-		openid_config_json = requests.get(endpoint).json()
-
-		return openid_config_json
+		return requests.get(endpoint).json()
 
 	@staticmethod
 	def enumerate_tenant_domains(domain, user_agent='AutodiscoverClient'):
@@ -276,7 +272,7 @@ class OutsiderRecon:
 		headers = {
 			'Content-Type': 'text/xml; charset=utf-8',
 			'SOAPAction': '"http://schemas.microsoft.com/exchange/2010' \
-				'/Autodiscover/Autodiscover/GetFederationInformation"',
+					'/Autodiscover/Autodiscover/GetFederationInformation"',
 			'User-Agent': user_agent
 		}
 
@@ -315,12 +311,7 @@ class OutsiderRecon:
 			except ET.ParseError:
 				continue
 
-		domains = []
-
-		for i in xml_response[1][0][0][3]:
-			domains.append(i.text)
-
-		return domains
+		return [i.text for i in xml_response[1][0][0][3]]
 
 	def main(self):
 		"""Runner method"""
@@ -340,10 +331,10 @@ class OutsiderRecon:
 
 		arg_parser = argparse.ArgumentParser(
 			prog='outsider_recon.py',
-			usage=success + '%(prog)s' + warning + ' <domain>' + reset + \
-				' [-o|--outfile <path-to-file>] [-u|--user <user>]',
+			usage=f'{success}%(prog)s{warning} <domain>{reset} [-o|--outfile <path-to-file>] [-u|--user <user>]',
 			description=description,
-			formatter_class=argparse.RawDescriptionHelpFormatter)
+			formatter_class=argparse.RawDescriptionHelpFormatter,
+		)
 		arg_parser.add_argument(
 			'Domain',
 			metavar='domain',
@@ -356,7 +347,7 @@ class OutsiderRecon:
 			dest='outfile_path',
 			type=str,
 			help='(string) The path where you want the recon data (json object) saved.\n' \
-				'If not supplied, module defaults to the current directory',
+					'If not supplied, module defaults to the current directory',
 			required=False)
 		arg_parser.add_argument(
 			'-u',
@@ -365,40 +356,36 @@ class OutsiderRecon:
 			dest='user',
 			type=str,
 			help='(string) The user you want to use during enumeration. Do not include the' \
-				' domain.\nIf not supplied, module defaults to "none"',
+					' domain.\nIf not supplied, module defaults to "none"',
 			required=False)
 
 		args = arg_parser.parse_args()
 
-		outfile_prefix = time.strftime('%Y-%m-%d_%H-%M-%S_' + args.Domain + '_')
+		outfile_prefix = time.strftime(f'%Y-%m-%d_%H-%M-%S_{args.Domain}_')
 
 		# Set a default path if none is given
 		path = args.outfile_path
 		if path is None:
 			path = './'
 		elif path[-1] != '/':
-			path = path + '/'
+			path = f'{path}/'
 
 		# Set a default user if none is given
 		user = args.user
-		if user is None:
-			user = 'none'
-		else:
-			user = user.split('@')[0]
-
+		user = 'none' if user is None else user.split('@')[0]
 		# Enumerating all domains for the tenant the passed in domain belongs to
-		print(warning + 'Enumerating Other Domains Within Tenant' + reset + '\n')
+		print(f'{warning}Enumerating Other Domains Within Tenant{reset}' + '\n')
 		domains_found = self.enumerate_tenant_domains(args.Domain)
 		if domains_found is None:
 			print(danger + 'It doesn\'t look like this is a domain in Azure.'\
-				' Check your domain or try something else.')
+					' Check your domain or try something else.')
 			sys.exit()
 		for domain_found in domains_found:
-			print(success + '[+] ' + reset + domain_found)
+			print(f'{success}[+] {reset}{domain_found}')
 		print()
 
 		# Enumerating the openid configuration for the tenant
-		print(warning + 'Enumerating OpenID Configuration for Tenant' + reset + '\n')
+		print(f'{warning}Enumerating OpenID Configuration for Tenant{reset}' + '\n')
 		openid_config = self.enumerate_openid(args.Domain)
 		for elem in openid_config:
 			print((success + elem + reset + ':\t' + str(openid_config[elem])).expandtabs(50))
@@ -406,32 +393,32 @@ class OutsiderRecon:
 
 		# Enumerating the login information for each domain discovered
 		login_infos = {}
-		print(warning + 'Enumerating User Login Information' + reset + '\n')
+		print(f'{warning}Enumerating User Login Information{reset}' + '\n')
 		for domain_found in domains_found:
 			user_realm_json = self.enumerate_login_info(args.Domain, user)
 			login_infos[domain_found] = user_realm_json
-			print(warning + '[+] ' + domain_found + ":" + reset)
-			print(warning + '========================' + reset)
+			print(f'{warning}[+] {domain_found}:{reset}')
+			print(f'{warning}========================{reset}')
 			for key, value in user_realm_json.items():
 				print((success + key + reset + ":\t" + str(value)).expandtabs(50))
-			print(warning + '========================' + reset + '\n')
+			print(f'{warning}========================{reset}' + '\n')
 		print()
 
 		# Enumerate the tenant ID
-		print(warning + 'Tenant ID' + reset + '\n')
+		print(f'{warning}Tenant ID{reset}' + '\n')
 		tenant_id = self.enumerate_tenant_id(openid_config)
-		print(success + '[+] ' + reset + tenant_id)
+		print(f'{success}[+] {reset}{tenant_id}')
 		print()
 
 		# Enumerate Domain Information (DNS, CLOUDMX, CLOUDSPF, DMARC, Identity Management, STS, SSO)
-		print(warning + 'Enumerating Domain Information' + reset + '\n')
+		print(f'{warning}Enumerating Domain Information{reset}' + '\n')
 		domain_info = self.enumerate_domain_info(domains_found, login_infos)
 		for domain_name, domain_data in domain_info.items():
-			print(warning + '[+] ' + domain_name + ":" + reset)
-			print(warning + '========================' + reset)
+			print(f'{warning}[+] {domain_name}:{reset}')
+			print(f'{warning}========================{reset}')
 			for key, value in domain_data.items():
 				print((success + key + reset + ":\t" + str(value)).expandtabs(24))
-			print(warning + '========================' + reset + '\n')
+			print(f'{warning}========================{reset}' + '\n')
 
 		# Save our results to files
 
@@ -448,7 +435,7 @@ class OutsiderRecon:
 
 		## Save Domain Login Information
 		with open(path + outfile_prefix + \
-				'domain_login_information.json', 'w+', encoding='UTF-8') as file:
+					'domain_login_information.json', 'w+', encoding='UTF-8') as file:
 			file.write(json.dumps(login_infos))
 			file.close()
 
@@ -462,7 +449,7 @@ class OutsiderRecon:
 			file.write(json.dumps(domain_info))
 			file.close()
 
-		print(success + '[+] Files Saved Successfully!' + reset)
+		print(f'{success}[+] Files Saved Successfully!{reset}')
 
 def runner():
 	"""Runner function"""

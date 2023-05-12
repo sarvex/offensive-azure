@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 '''
 
+
 import os
 import sys
 import time
@@ -110,10 +111,7 @@ SELECT_PARAMS_DICT = {
 		# Private | Public | Hiddenmembership
 }
 
-SELECT_PARAMS = []
-for param_key in SELECT_PARAMS_DICT:
-	SELECT_PARAMS.append(param_key)
-
+SELECT_PARAMS = list(SELECT_PARAMS_DICT)
 SELECT_PARAMS_STRING = str(SELECT_PARAMS)[1:][:-1].replace('\'','').replace(' ', '')
 
 ENDPOINT = ENDPOINT_BASE + SELECT_PARAMS_STRING
@@ -136,11 +134,10 @@ def main():
 	"""Runner method"""
 	arg_parser = argparse.ArgumentParser(
 		prog='get_groups.py',
-		usage=SUCCESS + '%(prog)s' + RESET + \
-			' [-t|--graph_token <graph_token>]' + \
-			' [-r|--refresh_token <refresh_token>]',
+		usage=f'{SUCCESS}%(prog)s{RESET} [-t|--graph_token <graph_token>] [-r|--refresh_token <refresh_token>]',
 		description=DESCRIPTION,
-		formatter_class=argparse.RawDescriptionHelpFormatter)
+		formatter_class=argparse.RawDescriptionHelpFormatter,
+	)
 	arg_parser.add_argument(
 		'-t',
 		'--graph_token',
@@ -183,10 +180,12 @@ def main():
 	if outfile_path_base is None:
 		outfile_path_base = time.strftime('%Y-%m-%d_%H-%M-%S_')
 	elif outfile_path_base[-1] != '/':
-		outfile_path_base = outfile_path_base + '/' + time.strftime('%Y-%m-%d_%H-%M-%S_')
-	outfile_raw_json = outfile_path_base + 'groups_raw.json'
-	outfile_condensed = outfile_path_base + 'groups_condensed.json'
-	outfile_bloodhound = outfile_path_base + 'groups_bloodhound.json'
+		outfile_path_base = f'{outfile_path_base}/' + time.strftime(
+			'%Y-%m-%d_%H-%M-%S_'
+		)
+	outfile_raw_json = f'{outfile_path_base}groups_raw.json'
+	outfile_condensed = f'{outfile_path_base}groups_condensed.json'
+	outfile_bloodhound = f'{outfile_path_base}groups_bloodhound.json'
 
 	# Check to see if any graph or refresh token is given in the arguments
 	# If both are given, will use graph token
@@ -207,7 +206,7 @@ def main():
 				json_file_data = json.load(json_file)
 				json_file.close()
 		except OSError as error:
-			print(str(error))
+			print(error)
 			sys.exit()
 		refresh_token = json_file_data['refresh_token']
 	elif args.graph_token is not None:
@@ -245,9 +244,7 @@ def main():
 		graph_token = json_data['access_token']
 
 	# Getting our first (only?) page of group results
-	headers = {
-		'Authorization': 'Bearer ' + graph_token
-	}
+	headers = {'Authorization': f'Bearer {graph_token}'}
 
 	response = requests.get(ENDPOINT, headers=headers).json()
 	raw_json_data = {'value': []}
@@ -305,7 +302,7 @@ def main():
 	group_count = len(raw_json_data['value'])
 	parts = graph_token.split('.')
 	payload = parts[1]
-	payload_string = base64.b64decode(payload + '==')
+	payload_string = base64.b64decode(f'{payload}==')
 	payload_json = json.loads(payload_string)
 	token_tenant_id  = payload_json['tid']
 	bloodhound_json_data = {

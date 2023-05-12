@@ -111,11 +111,15 @@ def main():
 	Returns a new access token + refresh token
 	pair for target resource
 	"""
-	arg_parser = argparse.ArgumentParser(prog='token_juggle.py',
-					usage=SUCCESS + '%(prog)s' + WARNING + ' <resource> ' + \
-					RESET +'[-r \'refresh_token\' | -R \'./path/to/refresh_token.json\']',
-					description=DESCRIPTION,
-					formatter_class=argparse.RawDescriptionHelpFormatter)
+	arg_parser = argparse.ArgumentParser(
+		prog='token_juggle.py',
+		usage=(
+			f'{SUCCESS}%(prog)s{WARNING} <resource> {RESET}'
+			+ '[-r \'refresh_token\' | -R \'./path/to/refresh_token.json\']'
+		),
+		description=DESCRIPTION,
+		formatter_class=argparse.RawDescriptionHelpFormatter,
+	)
 	arg_parser.add_argument('Resource',
 				metavar='resource',
 				type=str,
@@ -153,7 +157,7 @@ def main():
 	# Set a default outfile if none is given
 	outfile = args.outfile_path
 	if outfile is None:
-		outfile = time.strftime('%Y-%m-%d_%H-%M-%S_' + args.Resource + '_token.json')
+		outfile = time.strftime(f'%Y-%m-%d_%H-%M-%S_{args.Resource}_token.json')
 
 	# Initializing
 	refresh_token = ''
@@ -204,7 +208,7 @@ def main():
 				json_file_data = json.load(json_file)
 				json_file.close()
 		except OSError as error:
-			print(str(error))
+			print(error)
 			sys.exit()
 		refresh_token = json_file_data['refresh_token']
 	else:

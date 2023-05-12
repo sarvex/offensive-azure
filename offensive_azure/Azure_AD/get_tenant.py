@@ -59,11 +59,10 @@ def main():
 	"""Runner method"""
 	arg_parser = argparse.ArgumentParser(
 		prog='get_tenant.py',
-		usage=SUCCESS + '%(prog)s' + RESET + \
-			' [-t|--access_token <access_token>]' + \
-			' [-r|--refresh_token <refresh_token>]',
+		usage=f'{SUCCESS}%(prog)s{RESET} [-t|--access_token <access_token>] [-r|--refresh_token <refresh_token>]',
 		description=DESCRIPTION,
-		formatter_class=argparse.RawDescriptionHelpFormatter)
+		formatter_class=argparse.RawDescriptionHelpFormatter,
+	)
 	arg_parser.add_argument(
 		'-t',
 		'--access_token',
@@ -107,9 +106,11 @@ def main():
 	if outfile_path_base is None:
 		outfile_path_base = time.strftime('%Y-%m-%d_%H-%M-%S_')
 	elif outfile_path_base[-1] != '/':
-		outfile_path_base = outfile_path_base + '/' + time.strftime('%Y-%m-%d_%H-%M-%S_')
-	outfile_text = outfile_path_base + 'tenant.txt'
-	outfile_bloodhound = outfile_path_base + 'tenant_bloodhound.json'
+		outfile_path_base = f'{outfile_path_base}/' + time.strftime(
+			'%Y-%m-%d_%H-%M-%S_'
+		)
+	outfile_text = f'{outfile_path_base}tenant.txt'
+	outfile_bloodhound = f'{outfile_path_base}tenant_bloodhound.json'
 
 	# Check to see if any graph or refresh token is given in the arguments
 	# If both are given, will use graph token
@@ -130,7 +131,7 @@ def main():
 				json_file_data = json.load(json_file)
 				json_file.close()
 		except OSError as error:
-			print(str(error))
+			print(error)
 			sys.exit()
 		refresh_token = json_file_data['refresh_token']
 	elif args.access_token is not None:
@@ -169,7 +170,7 @@ def main():
 
 	parts = access_token.split('.')
 	payload = parts[1]
-	payload_string = base64.b64decode(payload + '==')
+	payload_string = base64.b64decode(f'{payload}==')
 	payload_json = json.loads(payload_string)
 
 	tenant_id  = payload_json['tid']

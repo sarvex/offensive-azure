@@ -65,11 +65,10 @@ def main():
 	"""Runner method"""
 	arg_parser = argparse.ArgumentParser(
 		prog='get_vms.py',
-		usage=SUCCESS + '%(prog)s' + RESET + \
-			' [-t|--arm_token <arm_token>]' + \
-			' [-r|--refresh_token <refresh_token>]',
+		usage=f'{SUCCESS}%(prog)s{RESET} [-t|--arm_token <arm_token>] [-r|--refresh_token <refresh_token>]',
 		description=DESCRIPTION,
-		formatter_class=argparse.RawDescriptionHelpFormatter)
+		formatter_class=argparse.RawDescriptionHelpFormatter,
+	)
 	arg_parser.add_argument(
 		'-t',
 		'--arm_token',
@@ -112,9 +111,11 @@ def main():
 	if outfile_path_base is None:
 		outfile_path_base = time.strftime('%Y-%m-%d_%H-%M-%S_')
 	elif outfile_path_base[-1] != '/':
-		outfile_path_base = outfile_path_base + '/' + time.strftime('%Y-%m-%d_%H-%M-%S_')
-	outfile_raw_json = outfile_path_base + 'virtual_machines_raw.json'
-	outfile_bloodhound = outfile_path_base + 'virtual_machines_bloodhound.json'
+		outfile_path_base = f'{outfile_path_base}/' + time.strftime(
+			'%Y-%m-%d_%H-%M-%S_'
+		)
+	outfile_raw_json = f'{outfile_path_base}virtual_machines_raw.json'
+	outfile_bloodhound = f'{outfile_path_base}virtual_machines_bloodhound.json'
 
 	# Check to see if any graph or refresh token is given in the arguments
 	# If both are given, will use graph token
@@ -135,7 +136,7 @@ def main():
 				json_file_data = json.load(json_file)
 				json_file.close()
 		except OSError as error:
-			print(str(error))
+			print(error)
 			sys.exit()
 		refresh_token = json_file_data['refresh_token']
 	elif args.arm_token is not None:
@@ -173,9 +174,7 @@ def main():
 		arm_token = json_data['access_token']
 
 	# Grabbing the available subscriptions
-	headers = {
-		'Authorization': 'Bearer ' + arm_token
-	}
+	headers = {'Authorization': f'Bearer {arm_token}'}
 	subs_response = requests.get(ENDPOINT_SUBS, headers=headers).json()
 	raw_json_data_subs = {
 		'value': subs_response['value']
@@ -228,7 +227,7 @@ def main():
 	for vm_entry in raw_json_data_vm['value']:
 		rsg_group_sub = vm_entry['id'].split('/')[2]
 		rsg_name = vm_entry['id'].split('/')[4]
-		rsg_id = '/'.join(vm_entry['id'].split('/')[0:5])
+		rsg_id = '/'.join(vm_entry['id'].split('/')[:5])
 		az_id = vm_entry['properties']['vmId']
 		vm_name = vm_entry['name']
 		bloodhound_json_data['data'].append({
@@ -240,8 +239,8 @@ def main():
 		})
 
 		for prop, val in vm_entry.items():
-			if val is not None:
-				if prop == 'properties':
+			if prop == 'properties':
+				if val is not None:
 					print(f'{SUCCESS}{prop}{RESET}:')
 					for prop_1, val_1 in val.items():
 						if prop_1 in ['storageProfile', 'osProfile', 'networkProfile']:
@@ -269,20 +268,20 @@ def main():
 											if val_3 is not None:
 												print(f'\t\t\t{SUCCESS}{prop_3}{RESET}:' \
 													f'\t{str(val_3)}'.expandtabs(2))
-								else:
-									if val_2 is not None:
-										print(f'\t\t{SUCCESS}{prop_2}{RESET}:' \
-											f'\t{str(val_2)}'.expandtabs(2))
+								elif val_2 is not None:
+									print(f'\t\t{SUCCESS}{prop_2}{RESET}:' \
+										f'\t{str(val_2)}'.expandtabs(2))
 						else:
 							print(f'\t{SUCCESS}{prop_1}{RESET}:\t{str(val_1)}'.expandtabs(2))
-				elif prop == 'resources':
+			elif prop == 'resources':
+				if val is not None:
 					print(f'{SUCCESS}{prop}{RESET}:')
 					for each in val:
 						for prop2, val2 in each.items():
 							if val2 is not None:
 								print(f'\t{SUCCESS}{prop2}{RESET}: {val2}'.expandtabs(2))
-				else:
-					print(f'{SUCCESS}{prop}{RESET}:\t{str(val)}'.expandtabs(2))
+			elif val is not None:
+				print(f'{SUCCESS}{prop}{RESET}:\t{str(val)}'.expandtabs(2))
 
 		print()
 

@@ -146,10 +146,7 @@ def main():
 			unfinished = False
 		else:
 			print(poll_json['error'] + dots + '   ', end='\r')
-			if dots == "...":
-				dots = ""
-			else:
-				dots = dots + "."
+			dots = "" if dots == "..." else f"{dots}."
 			if (int(current_time) - int(start_time)) > int(expires_in):
 				print()
 				print("Device Code Expired :(")

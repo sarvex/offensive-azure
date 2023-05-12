@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 '''
 
+
 import os
 import sys
 import time
@@ -146,10 +147,7 @@ SELECT_PARAMS_DICT = {
 	'isResourceAccount': 'Is_Resource_Account' # Not currently used, reserved for future use
 }
 
-SELECT_PARAMS = []
-for param_key in SELECT_PARAMS_DICT:
-	SELECT_PARAMS.append(param_key)
-
+SELECT_PARAMS = list(SELECT_PARAMS_DICT)
 SELECT_PARAMS_STRING = str(SELECT_PARAMS)[1:][:-1].replace('\'','').replace(' ', '')
 
 ENDPOINT = ENDPOINT_BASE + SELECT_PARAMS_STRING
@@ -179,11 +177,10 @@ def main():
 	"""Runner method"""
 	arg_parser = argparse.ArgumentParser(
 		prog='get_users.py',
-		usage=SUCCESS + '%(prog)s' + RESET + \
-			' [-t|--graph_token <graph_token>]' + \
-			' [-r|--refresh_token <refresh_token>]',
+		usage=f'{SUCCESS}%(prog)s{RESET} [-t|--graph_token <graph_token>] [-r|--refresh_token <refresh_token>]',
 		description=DESCRIPTION,
-		formatter_class=argparse.RawDescriptionHelpFormatter)
+		formatter_class=argparse.RawDescriptionHelpFormatter,
+	)
 	arg_parser.add_argument(
 		'-t',
 		'--graph_token',
@@ -227,10 +224,12 @@ def main():
 	if outfile_path_base is None:
 		outfile_path_base = time.strftime('%Y-%m-%d_%H-%M-%S_')
 	elif outfile_path_base[-1] != '/':
-		outfile_path_base = outfile_path_base + '/' + time.strftime('%Y-%m-%d_%H-%M-%S_')
-	outfile_raw_json = outfile_path_base + 'users_raw.json'
-	outfile_condensed = outfile_path_base + 'users_condensed.json'
-	outfile_bloodhound = outfile_path_base + 'users_bloodhound.json'
+		outfile_path_base = f'{outfile_path_base}/' + time.strftime(
+			'%Y-%m-%d_%H-%M-%S_'
+		)
+	outfile_raw_json = f'{outfile_path_base}users_raw.json'
+	outfile_condensed = f'{outfile_path_base}users_condensed.json'
+	outfile_bloodhound = f'{outfile_path_base}users_bloodhound.json'
 
 	# Check to see if any graph or refresh token is given in the arguments
 	# If both are given, will use graph token
@@ -251,7 +250,7 @@ def main():
 				json_file_data = json.load(json_file)
 				json_file.close()
 		except OSError as error:
-			print(str(error))
+			print(error)
 			sys.exit()
 		refresh_token = json_file_data['refresh_token']
 	elif args.graph_token is not None:
@@ -290,9 +289,7 @@ def main():
 
 
 	# Getting our first (only?) page of user results
-	headers = {
-		'Authorization': 'Bearer ' + graph_token
-	}
+	headers = {'Authorization': f'Bearer {graph_token}'}
 
 	response = requests.get(ENDPOINT, headers=headers).json()
 	raw_json_data = {'value': []}
@@ -333,12 +330,10 @@ def main():
 				'Current_License_States', 'Assigned_Licenses'):
 				continue
 			if key == 'Custom_Exchange_Attributes_On-Prem':
-				include_exchange_attr = False
 				json_values = json.loads(value.replace('\'', '\"').replace('None', 'null'))
-				for exchange_value in json_values.values():
-					if exchange_value is not None:
-						include_exchange_attr = True
-						break
+				include_exchange_attr = any(
+					exchange_value is not None for exchange_value in json_values.values()
+				)
 				if include_exchange_attr:
 					condensed_json_data['users'][object_id][key] = value
 					print(f'{SUCCESS}{key}{RESET}:\t{value}'.expandtabs(56))
@@ -363,7 +358,7 @@ def main():
 	user_count = len(raw_json_data['value'])
 	parts = graph_token.split('.')
 	payload = parts[1]
-	payload_string = base64.b64decode(payload + '==')
+	payload_string = base64.b64decode(f'{payload}==')
 	payload_json = json.loads(payload_string)
 	token_tenant_id  = payload_json['tid']
 	bloodhound_json_data = {
@@ -375,10 +370,7 @@ def main():
 		'data': []
 	}
 	for user in raw_json_data['value']:
-		if '#EXT#' not in user['userPrincipalName']:
-			tenant_id = token_tenant_id
-		else:
-			tenant_id = None
+		tenant_id = None if '#EXT#' in user['userPrincipalName'] else token_tenant_id
 		bloodhound_json_data['data'].append({
 			'DisplayName': user['userPrincipalName'].split('@')[0],
 			'UserPrincipalName': user['userPrincipalName'],
